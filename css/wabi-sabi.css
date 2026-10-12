@@ -1,0 +1,99 @@
+/* frontend/css/wabi-sabi.css */
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+body { background: #141416; color: #e4e4e7; line-height: 1.5; padding: 24px; }
+.hidden { display: none !important; }
+.app-container { max-width: 1100px; margin: 0 auto; }
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #27272a;
+  margin-bottom: 24px;
+}
+
+.active-user-badge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-logout {
+  background: transparent;
+  color: #a1a1aa;
+  border: 1px solid #3f3f46;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.card {
+  background: #1c1c20;
+  border: 1px solid #27272a;
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.card-title { font-size: 13px; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.5px; }
+.card-val { font-size: 22px; font-weight: 700; margin-top: 6px; }
+.gold { color: #facc15; }
+.green { color: #4ade80; }
+
+.section-box {
+  background: #1c1c20;
+  border: 1px solid #27272a;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+input, select {
+  background: #121214;
+  border: 1px solid #3f3f46;
+  color: #fff;
+  padding: 10px 12px;
+  border-radius: 6px;
+}
+
+.btn-primary {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  padding: 12px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  grid-column: 1 / -1;
+  margin-top: 6px;
+}
+
+.btn-approve {
+  background: #059669;
+  color: #fff;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+th, td { text-align: left; padding: 12px; border-bottom: 1px solid #27272a; font-size: 14px; }
+th { color: #a1a1aa; font-weight: 500; }
+.status-badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+.status-pending { background: #713f12; color: #fef08a; }
+.status-approved { background: #064e3b; color: #a7f3d0; }
