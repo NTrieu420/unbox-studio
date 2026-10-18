@@ -2,6 +2,8 @@
 let cachedItems = [];
 let cachedDebts = [];
 const LOW_STOCK = 5;
+let currentDebtIdToPay = null;
+let currentItemIdToEdit = null;
 
 /* ---------- Tiện ích ---------- */
 const fmtVnd = (n) => (Number(n) || 0).toLocaleString('vi-VN') + ' đ';
@@ -53,6 +55,7 @@ function initDashboard(user) {
   document.getElementById('nav-debt').classList.toggle('hidden', isKimmie);
   document.getElementById('thAction').classList.toggle('hidden', isKimmie);
   document.getElementById('thStatus').classList.toggle('hidden', isKimmie);
+  document.getElementById('thLiveAction').classList.toggle('hidden', isKimmie);
 
   loadData(user.id);
 }
@@ -71,7 +74,7 @@ async function loadData(roleId) {
 
     renderTable(cachedItems, roleId);
     renderLiveSelect(cachedItems);
-    renderLiveReports(data.liveReports || []);
+    renderLiveReports(data.liveReports || [], roleId);
     
     if (roleId !== 'KIMMIE') {
       cachedDebts = data.debts || [];
@@ -127,13 +130,13 @@ function renderTable(items, roleId) {
     const isPending = item.status === 'CHO_DUYET';
     const isJoint = item.capitalSource === 'CHUNG_70_30';
     
-    // XỬ LÝ NÚT THAO TÁC
     let actionBtn = '-';
     if (roleId === 'CUN') {
-      actionBtn = `<div style="display:flex; justify-content:flex-end;">`;
+      actionBtn = `<div style="display:flex; justify-content:flex-end; gap:4px;">`;
       if (isPending) {
-        actionBtn += `<button class="btn-approve" onclick="approveItem('${esc(item.id)}', this)">Duyệt ngay</button>`;
+        actionBtn += `<button class="btn-approve" onclick="approveItem('${esc(item.id)}', this)">Duyệt</button>`;
       }
+      actionBtn += `<button class="btn-logout" style="padding: 6px 12px; border-radius: 6px; font-size: 0.85rem;" onclick="openEditItemModal('${esc(item.id)}')">Sửa</button>`;
       actionBtn += `<button class="btn-delete" onclick="deleteItem('${esc(item.id)}', this)">Xóa</button>`;
       actionBtn += `</div>`;
     }
@@ -156,14 +159,15 @@ function renderTable(items, roleId) {
 }
 
 /* ---------- Bảng nhật ký live ---------- */
-function renderLiveReports(reports) {
+function renderLiveReports(reports, roleId) {
   const tbody = document.getElementById('liveReportList');
   const summary = document.getElementById('liveSummary');
   tbody.innerHTML = '';
+  const isKimmie = roleId === 'KIMMIE';
 
   if (reports.length === 0) {
     summary.innerHTML = '';
-    tbody.innerHTML = '<tr><td colspan="8" class="empty-row">Chưa có báo cáo phiên live nào</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="${isKimmie ? 8 : 9}" class="empty-row">Chưa có báo cáo phiên live nào</td></tr>`;
     return;
   }
 
@@ -176,6 +180,12 @@ function renderLiveReports(reports) {
 
   reports.forEach(r => {
     const profit = Number(r.profit) || 0;
+    
+    let actionBtn = '';
+    if (!isKimmie) {
+      actionBtn = `<button class="btn-delete" onclick="deleteLiveSession('${esc(r.sessionId)}', '${esc(r.itemName)}', this)">Xóa</button>`;
+    }
+
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td data-label="Thời gian">${esc(r.date)}</td>
@@ -186,9 +196,89 @@ function renderLiveReports(reports) {
       <td class="num gold" data-label="Tiền đào vàng">${fmtVnd(r.daoVangRevenue)}</td>
       <td class="num" data-label="Tổng doanh thu">${fmtVnd(r.totalRevenue)}</td>
       <td class="num ${profit < 0 ? 'red' : 'green'}" data-label="Tiền lãi" style="font-weight:700;">${profit < 0 ? '-' : '+'}${fmtVnd(Math.abs(profit))}</td>
+      ${isKimmie ? '' : `<td data-label="Thao tác">${actionBtn}</td>`}
     `;
     tbody.appendChild(tr);
   });
+}
+
+/* ---------- Xử lý Sửa Kho ---------- */
+function openEditItemModal(itemId) {
+  const item = cachedItems.find(it => it.id === itemId);
+  if (!item) return;
+
+  currentItemIdToEdit = itemId;
+  document.getElementById('editItemName').value = item.name;
+  document.getElementById('editCapitalSource').value = item.capitalSource;
+  document.getElementById('editCnyPrice').value = item.cnyPrice;
+  document.getElementById('editShippingFee').value = item.shippingFeeTqVn;
+  document.getElementById('editPriceTiktok').value = item.priceTiktok;
+  document.getElementById('editPriceZalo').value = item.priceZalo;
+  document.getElementById('editPriceDaoVang').value = item.priceDaoVang || '';
+  document.getElementById('editStock').value = item.stock;
+
+  document.getElementById('editItemModal').classList.remove('hidden');
+}
+
+function closeEditItemModal() {
+  document.getElementById('editItemModal').classList.add('hidden');
+  currentItemIdToEdit = null;
+}
+
+async function submitEditItem() {
+  const btn = document.querySelector('#editItemModal .btn-primary');
+  btn.disabled = true;
+
+  const payload = {
+    action: 'UPDATE_ITEM',
+    userRole: currentSessionUser.id,
+    itemId: currentItemIdToEdit,
+    data: {
+      name: document.getElementById('editItemName').value,
+      capitalSource: document.getElementById('editCapitalSource').value,
+      cnyPrice: document.getElementById('editCnyPrice').value,
+      shippingFeeTqVn: document.getElementById('editShippingFee').value,
+      priceTiktok: document.getElementById('editPriceTiktok').value,
+      priceZalo: document.getElementById('editPriceZalo').value,
+      priceDaoVang: document.getElementById('editPriceDaoVang').value || 0,
+      stock: document.getElementById('editStock').value
+    }
+  };
+
+  try {
+    const resData = await postAction(payload);
+    showToast(resData.message, resData.success === false ? 'error' : 'success');
+    if (resData.success) {
+      closeEditItemModal();
+      loadData(currentSessionUser.id);
+    }
+  } catch (err) {
+    console.error(err);
+    showToast('Sửa thất bại.', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* ---------- Xử lý Xóa Live ---------- */
+async function deleteLiveSession(sessionId, itemName, btn) {
+  if (!confirm(`Bạn có chắc muốn xóa phiên live này? Hệ thống sẽ hoàn lại số lượng vào kho (nếu có).`)) return;
+  
+  if (btn) btn.disabled = true;
+  try {
+    const resData = await postAction({
+      action: 'DELETE_LIVE_SESSION',
+      userRole: currentSessionUser.id,
+      sessionId: sessionId,
+      itemName: itemName
+    });
+    showToast(resData.message, resData.success === false ? 'error' : 'success');
+    loadData(currentSessionUser.id);
+  } catch (err) {
+    console.error(err);
+    showToast('Xóa thất bại.', 'error');
+    if (btn) btn.disabled = false;
+  }
 }
 
 /* ---------- Bộ Lọc & Sổ Công Nợ ---------- */
@@ -242,23 +332,101 @@ function renderDebts(debts) {
 
   if (debts.length === 0) {
     summary.innerHTML = '<span class="chip">Không tìm thấy khách hàng nào</span>';
-    tbody.innerHTML = '<tr><td colspan="5" class="empty-row">Không có dữ liệu</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-row">Không có dữ liệu</td></tr>';
     return;
   }
 
   summary.innerHTML = `<span class="chip"><b>${debts.length}</b> khách hàng hiển thị</span>`;
+  const isAdmin = currentSessionUser.id === 'CUN';
 
   debts.forEach(d => {
+    const owedVal = Number(d.owed) || 0;
+    
+    let payBtn = '';
+    if (owedVal > 0) {
+      payBtn = `<button class="btn-approve" onclick="openDebtPayModal('${esc(d.id)}', '${esc(d.name)}', ${owedVal})">Thu Nợ</button>`;
+    } else {
+      payBtn = `<span style="color:var(--green); font-size:0.85rem; font-weight:600;">Đã xong</span>`;
+    }
+
+    let deleteBtn = '';
+    if (isAdmin) {
+      deleteBtn = `<button class="btn-delete" onclick="deleteDebt('${esc(d.id)}', this)">Xóa</button>`;
+    }
+
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td data-label="Ngày">${esc(d.date)}</td>
       <td class="name-cell" data-label="Tên khách"><strong>${esc(d.name)}</strong></td>
       <td class="num green" data-label="Đã trả">${fmtVnd(d.paid)}</td>
       <td class="num red" data-label="Còn thiếu">${fmtVnd(d.owed)}</td>
-      <td data-label="Ghi chú">${esc(d.note)}</td>
+      <td data-label="Ghi chú" style="font-size: 0.85rem; color: var(--muted);">${esc(d.note)}</td>
+      <td data-label="Thao tác"><div style="display:flex; gap:8px; justify-content:flex-end;">${payBtn}${deleteBtn}</div></td>
     `;
     tbody.appendChild(tr);
   });
+}
+
+/* ---------- Xử lý Thu Nợ ---------- */
+function openDebtPayModal(id, name, owed) {
+  currentDebtIdToPay = id;
+  document.getElementById('payDebtName').innerText = name;
+  document.getElementById('payDebtAmount').value = owed;
+  document.getElementById('payDebtHint').innerText = `Còn nợ: ${fmtVnd(owed)}`;
+  document.getElementById('debtPayModal').classList.remove('hidden');
+  
+  setTimeout(() => document.getElementById('payDebtAmount').focus(), 100);
+}
+
+function closeDebtPayModal() {
+  document.getElementById('debtPayModal').classList.add('hidden');
+  currentDebtIdToPay = null;
+}
+
+async function submitDebtPayment() {
+  const amount = document.getElementById('payDebtAmount').value;
+  if (!amount || Number(amount) <= 0) {
+    showToast('Vui lòng nhập số tiền hợp lệ!', 'error');
+    return;
+  }
+
+  const btn = document.querySelector('#debtPayModal .btn-primary');
+  btn.disabled = true;
+
+  try {
+    const resData = await postAction({
+      action: 'RECORD_DEBT_PAYMENT',
+      debtId: currentDebtIdToPay,
+      amount: amount
+    });
+    showToast(resData.message, resData.success === false ? 'error' : 'success');
+    closeDebtPayModal();
+    loadData(currentSessionUser.id);
+  } catch (err) {
+    console.error(err);
+    showToast('Thu nợ thất bại, thử lại nhé.', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function deleteDebt(debtId, btn) {
+  if (!confirm('Bạn có chắc chắn muốn xóa công nợ của khách này? Hành động này không thể hoàn tác!')) return;
+  
+  if (btn) btn.disabled = true;
+  try {
+    const resData = await postAction({
+      action: 'DELETE_DEBT',
+      userRole: currentSessionUser.id,
+      debtId: debtId
+    });
+    showToast(resData.message, resData.success === false ? 'error' : 'success');
+    loadData(currentSessionUser.id);
+  } catch (err) {
+    console.error(err);
+    showToast('Xóa thất bại.', 'error');
+    if (btn) btn.disabled = false;
+  }
 }
 
 /* ---------- Biểu đồ tròn (Chart.js) ---------- */
@@ -421,12 +589,8 @@ async function approveItem(itemId, btn) {
   }
 }
 
-// THÊM HÀM XỬ LÝ NÚT XÓA
 async function deleteItem(itemId, btn) {
-  // Hiển thị hộp thoại xác nhận trước khi xóa để tránh bấm nhầm
-  if (!confirm('Bạn có chắc chắn muốn xóa mặt hàng này khỏi kho không? Hành động này không thể hoàn tác!')) {
-    return;
-  }
+  if (!confirm('Bạn có chắc chắn muốn xóa mặt hàng này khỏi kho không? Hành động này không thể hoàn tác!')) return;
   
   if (btn) btn.disabled = true;
   try {

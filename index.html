@@ -49,6 +49,77 @@
     </div>
   </div>
 
+  <!-- MODAL THU NỢ -->
+  <div id="debtPayModal" class="pin-modal hidden" style="z-index: 10001;">
+    <div class="pin-box" style="text-align: left;">
+      <h3 style="color: #fff; margin-bottom: 8px;">Thu Nợ Khách Hàng</h3>
+      <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 16px;">
+        Khách: <strong id="payDebtName" style="color: #fff;"></strong>
+      </p>
+      
+      <div class="field" style="margin-bottom: 20px;">
+        <label for="payDebtAmount">Số tiền khách trả (VNĐ)</label>
+        <input type="number" id="payDebtAmount" placeholder="Nhập số tiền..." inputmode="numeric" required>
+        <small id="payDebtHint" style="color: var(--muted); font-size: 0.8rem; margin-top: 4px;">Còn nợ: 0 đ</small>
+      </div>
+
+      <div style="display: flex; gap: 12px; justify-content: flex-end;">
+        <button type="button" class="btn-logout" onclick="closeDebtPayModal()">Hủy</button>
+        <button type="button" class="btn-primary" style="padding: 8px 16px; margin-top: 0;" onclick="submitDebtPayment()">Xác Nhận</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL SỬA MẶT HÀNG -->
+  <div id="editItemModal" class="pin-modal hidden" style="z-index: 10002;">
+    <div class="pin-box" style="text-align: left; max-width: 600px; width: 100%;">
+      <h3 style="color: #fff; margin-bottom: 16px;">Sửa Thông Tin Mặt Hàng</h3>
+      
+      <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="field full">
+          <label>Tên bộ thẻ / box</label>
+          <input type="text" id="editItemName" required>
+        </div>
+        <div class="field full">
+          <label>Nguồn vốn</label>
+          <select id="editCapitalSource">
+            <option value="CHUNG_70_30">🤝 Vốn Chung</option>
+            <option value="RIENG_CUN_NGAN">🔒 Vốn Riêng</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Giá nhập (VNĐ/hộp)</label>
+          <input type="number" id="editCnyPrice" required>
+        </div>
+        <div class="field">
+          <label>Tiền ship (VNĐ/hộp)</label>
+          <input type="number" id="editShippingFee" required>
+        </div>
+        <div class="field">
+          <label>Giá TikTok</label>
+          <input type="number" id="editPriceTiktok" required>
+        </div>
+        <div class="field">
+          <label>Giá Zalo</label>
+          <input type="number" id="editPriceZalo" required>
+        </div>
+        <div class="field">
+          <label>Giá Đào Vàng</label>
+          <input type="number" id="editPriceDaoVang">
+        </div>
+        <div class="field">
+          <label>Tồn kho</label>
+          <input type="number" id="editStock" required>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px;">
+        <button type="button" class="btn-logout" onclick="closeEditItemModal()">Hủy</button>
+        <button type="button" class="btn-primary" style="padding: 8px 16px; margin-top: 0;" onclick="submitEditItem()">Lưu Thay Đổi</button>
+      </div>
+    </div>
+  </div>
+
   <!-- THÔNG BÁO NỔI -->
   <div id="toastHost" class="toast-host" aria-live="polite"></div>
 
@@ -255,6 +326,7 @@
                 <th class="num">Tiền Đào Vàng</th>
                 <th class="num">Tổng Doanh Thu</th>
                 <th class="num">Tiền Lãi</th>
+                <th id="thLiveAction">Thao Tác</th>
               </tr>
             </thead>
             <tbody id="liveReportList"></tbody>
@@ -348,6 +420,7 @@
                 <th class="num">Đã trả</th>
                 <th class="num">Còn Thiếu</th>
                 <th>Ghi Chú</th>
+                <th>Thao Tác</th>
               </tr>
             </thead>
             <tbody id="debtList"></tbody>
