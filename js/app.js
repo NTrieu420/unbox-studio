@@ -1,6 +1,7 @@
 // frontend/js/app.js
 let cachedItems = [];
-const LOW_STOCK = 5; // ≤ mức này sẽ hiện nhãn "Sắp hết"
+let cachedDebts = [];
+const LOW_STOCK = 5;
 
 /* ---------- Tiện ích ---------- */
 const fmtVnd = (n) => (Number(n) || 0).toLocaleString('vi-VN') + ' đ';
@@ -28,6 +29,15 @@ async function postAction(payload) {
   return res.json();
 }
 
+/* ---------- Logic chuyển Tab ---------- */
+function switchTab(tabId, btn) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  
+  document.getElementById(tabId).classList.remove('hidden');
+  if (btn) btn.classList.add('active');
+}
+
 /* ---------- Khởi tạo theo quyền ---------- */
 function initDashboard(user) {
   document.getElementById('displayRoleName').innerText = `${user.name} (${user.badge})`;
@@ -36,8 +46,11 @@ function initDashboard(user) {
   avatar.alt = user.name;
 
   const isKimmie = user.id === 'KIMMIE';
+  
   document.getElementById('itemFormSection').classList.toggle('hidden', isKimmie);
   document.getElementById('liveReportSection').classList.toggle('hidden', isKimmie);
+  document.getElementById('debtSection').classList.toggle('hidden', isKimmie); 
+  document.getElementById('nav-debt').classList.toggle('hidden', isKimmie);
   document.getElementById('thAction').classList.toggle('hidden', isKimmie);
   document.getElementById('thStatus').classList.toggle('hidden', isKimmie);
 
@@ -59,6 +72,11 @@ async function loadData(roleId) {
     renderTable(cachedItems, roleId);
     renderLiveSelect(cachedItems);
     renderLiveReports(data.liveReports || []);
+    
+    if (roleId !== 'KIMMIE') {
+      cachedDebts = data.debts || [];
+      applyDebtFilters(); 
+    }
   } catch (err) {
     console.error('Lỗi:', err);
     showToast('Không tải được dữ liệu, thử lại sau nhé.', 'error');
@@ -92,7 +110,6 @@ function renderTable(items, roleId) {
     ? '📋 Danh Mục Hàng Hóa Vốn Chung'
     : '📋 Danh Mục Kho & Trạng Thái Duyệt';
 
-  // Tóm tắt
   const totalStock = items.reduce((s, it) => s + (Number(it.stock) || 0), 0);
   const pendingCount = items.filter(it => it.status === 'CHO_DUYET').length;
   document.getElementById('inventorySummary').innerHTML =
@@ -109,18 +126,25 @@ function renderTable(items, roleId) {
     const tr = document.createElement('tr');
     const isPending = item.status === 'CHO_DUYET';
     const isJoint = item.capitalSource === 'CHUNG_70_30';
+    
+    // XỬ LÝ NÚT THAO TÁC
     let actionBtn = '-';
-    if (roleId === 'CUN' && isPending) {
-      actionBtn = `<button class="btn-approve" onclick="approveItem('${esc(item.id)}', this)">Duyệt ngay</button>`;
+    if (roleId === 'CUN') {
+      actionBtn = `<div style="display:flex; justify-content:flex-end;">`;
+      if (isPending) {
+        actionBtn += `<button class="btn-approve" onclick="approveItem('${esc(item.id)}', this)">Duyệt ngay</button>`;
+      }
+      actionBtn += `<button class="btn-delete" onclick="deleteItem('${esc(item.id)}', this)">Xóa</button>`;
+      actionBtn += `</div>`;
     }
 
     tr.innerHTML = `
       <td class="name-cell" data-label="Tên thẻ"><strong>${esc(item.name)}</strong></td>
       <td data-label="Nguồn vốn"><span class="${isJoint ? 'tag-joint' : 'tag-private'}">${isJoint ? '🤝 Vốn Chung' : '🔒 Vốn Riêng'}</span></td>
-      <td class="num" data-label="Vốn gốc (kèm ship)">${fmtVnd(item.totalCostVnd)}</td>
+      <td class="num" data-label="Vốn gốc">${fmtVnd(item.totalCostVnd)}</td>
       <td class="num" data-label="TikTok">${fmtVnd(item.priceTiktok)}</td>
       <td class="num" data-label="Zalo">${fmtVnd(item.priceZalo)}</td>
-      <td class="num gold" data-label="Giá Đào Vàng">${fmtVnd(item.priceDaoVang)}</td>
+      <td class="num gold" data-label="Đào Vàng">${fmtVnd(item.priceDaoVang)}</td>
       <td class="num" data-label="Kho còn">${stockCell(item.stock)}</td>
       ${isKimmie ? '' : `
         <td data-label="Trạng thái"><span class="status-badge ${isPending ? 'status-pending' : 'status-approved'}">${isPending ? 'Chờ duyệt' : 'Đã vào kho'}</span></td>
@@ -167,7 +191,112 @@ function renderLiveReports(reports) {
   });
 }
 
-/* ---------- Gửi Báo Cáo Phiên Live ---------- */
+/* ---------- Bộ Lọc & Sổ Công Nợ ---------- */
+function applyDebtFilters() {
+  const searchName = document.getElementById('filterDebtName').value.toLowerCase().trim();
+  const filterDate = document.getElementById('filterDebtDate').value;
+  const sortType = document.getElementById('sortDebt').value;
+
+  let filtered = cachedDebts.filter(d => {
+    const matchName = d.name.toLowerCase().includes(searchName);
+    let matchDate = true;
+    if (filterDate && d.date) {
+      const datePart = d.date.split(' ')[0];
+      const parts = datePart.split('/');
+      if (parts.length === 3) {
+        const formattedDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+        matchDate = (formattedDate === filterDate);
+      } else { matchDate = false; }
+    }
+    return matchName && matchDate;
+  });
+
+  filtered.sort((a, b) => {
+    if (sortType === 'owed_desc') return (Number(b.owed) || 0) - (Number(a.owed) || 0);
+    if (sortType === 'owed_asc') return (Number(a.owed) || 0) - (Number(b.owed) || 0);
+    if (sortType === 'paid_desc') return (Number(b.paid) || 0) - (Number(a.paid) || 0);
+    return b.id.localeCompare(a.id);
+  });
+
+  renderDebts(filtered);
+}
+
+function resetDebtFilters() {
+  document.getElementById('filterDebtName').value = '';
+  document.getElementById('filterDebtDate').value = '';
+  document.getElementById('sortDebt').value = 'newest';
+  applyDebtFilters();
+}
+
+function renderDebts(debts) {
+  const tbody = document.getElementById('debtList');
+  const summary = document.getElementById('debtSummary');
+  tbody.innerHTML = '';
+
+  const totalPaid = cachedDebts.reduce((s, d) => s + (Number(d.paid) || 0), 0);
+  const totalOwed = cachedDebts.reduce((s, d) => s + (Number(d.owed) || 0), 0);
+
+  document.getElementById('totalPaidVal').innerText = fmtVnd(totalPaid);
+  document.getElementById('totalOwedVal').innerText = fmtVnd(totalOwed);
+  updateDebtChart(totalPaid, totalOwed);
+
+  if (debts.length === 0) {
+    summary.innerHTML = '<span class="chip">Không tìm thấy khách hàng nào</span>';
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-row">Không có dữ liệu</td></tr>';
+    return;
+  }
+
+  summary.innerHTML = `<span class="chip"><b>${debts.length}</b> khách hàng hiển thị</span>`;
+
+  debts.forEach(d => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td data-label="Ngày">${esc(d.date)}</td>
+      <td class="name-cell" data-label="Tên khách"><strong>${esc(d.name)}</strong></td>
+      <td class="num green" data-label="Đã trả">${fmtVnd(d.paid)}</td>
+      <td class="num red" data-label="Còn thiếu">${fmtVnd(d.owed)}</td>
+      <td data-label="Ghi chú">${esc(d.note)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+/* ---------- Biểu đồ tròn (Chart.js) ---------- */
+let debtChartInstance = null;
+function updateDebtChart(paid, owed) {
+  const ctx = document.getElementById('debtChart');
+  if (!ctx) return;
+
+  if (debtChartInstance) {
+    debtChartInstance.destroy();
+  }
+
+  debtChartInstance = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Đã trả', 'Còn nợ'],
+      datasets: [{
+        data: [paid, owed],
+        backgroundColor: ['#34d399', '#f87171'],
+        borderWidth: 0,
+        hoverOffset: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { color: '#9ca3af', font: { size: 12, family: 'Inter, sans-serif' } }
+        }
+      },
+      cutout: '70%'
+    }
+  });
+}
+
+/* ---------- Các Form Gửi Dữ Liệu ---------- */
 document.getElementById('liveReportForm').onsubmit = async (e) => {
   e.preventDefault();
   const form = e.target;
@@ -183,8 +312,8 @@ document.getElementById('liveReportForm').onsubmit = async (e) => {
       orderChannel: document.getElementById('liveOrderChannel').value,
       quantity: document.getElementById('liveQuantity').value,
       itemRevenue: document.getElementById('liveItemRevenue').value,
-      daoVangPlays: document.getElementById('daoVangPlays').value,
-      daoVangRevenue: document.getElementById('daoVangRevenue').value,
+      daoVangPlays: document.getElementById('daoVangPlays').value || 0,
+      daoVangRevenue: document.getElementById('daoVangRevenue').value || 0,
       note: document.getElementById('liveNote').value
     }
   };
@@ -196,13 +325,42 @@ document.getElementById('liveReportForm').onsubmit = async (e) => {
     loadData(currentSessionUser.id);
   } catch (err) {
     console.error(err);
-    showToast('Gửi báo cáo thất bại, thử lại nhé.', 'error');
+    showToast('Gửi báo cáo thất bại.', 'error');
   } finally {
     btn.disabled = false;
   }
 };
 
-/* ---------- Form nhập kho ---------- */
+document.getElementById('debtForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const btn = form.querySelector('button[type="submit"]');
+  btn.disabled = true;
+
+  const payload = {
+    action: 'CREATE_DEBT',
+    userRole: currentSessionUser.id,
+    data: {
+      name: document.getElementById('debtName').value,
+      paid: document.getElementById('debtPaid').value || 0,
+      owed: document.getElementById('debtOwed').value || 0,
+      note: document.getElementById('debtNote').value
+    }
+  };
+
+  try {
+    const resData = await postAction(payload);
+    showToast(resData.message, resData.success === false ? 'error' : 'success');
+    form.reset();
+    loadData(currentSessionUser.id);
+  } catch (err) {
+    console.error(err);
+    showToast('Thêm khách nợ thất bại.', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+};
+
 document.getElementById('addItemForm').onsubmit = async (e) => {
   e.preventDefault();
   const form = e.target;
@@ -220,7 +378,7 @@ document.getElementById('addItemForm').onsubmit = async (e) => {
       shippingFeeTqVn: document.getElementById('shippingFeeTqVn').value,
       priceTiktok: document.getElementById('priceTiktok').value,
       priceZalo: document.getElementById('priceZalo').value,
-      priceDaoVang: document.getElementById('priceDaoVang').value,
+      priceDaoVang: document.getElementById('priceDaoVang').value || 0,
       stock: document.getElementById('stock').value
     }
   };
@@ -240,13 +398,12 @@ document.getElementById('addItemForm').onsubmit = async (e) => {
     loadData(currentSessionUser.id);
   } catch (err) {
     console.error(err);
-    showToast('Tạo đơn nhập kho thất bại, thử lại nhé.', 'error');
+    showToast('Tạo đơn nhập kho thất bại.', 'error');
   } finally {
     btn.disabled = false;
   }
 };
 
-/* ---------- Duyệt hàng (chỉ Củn) ---------- */
 async function approveItem(itemId, btn) {
   if (btn) btn.disabled = true;
   try {
@@ -259,7 +416,30 @@ async function approveItem(itemId, btn) {
     loadData(currentSessionUser.id);
   } catch (err) {
     console.error(err);
-    showToast('Duyệt thất bại, thử lại nhé.', 'error');
+    showToast('Duyệt thất bại.', 'error');
+    if (btn) btn.disabled = false;
+  }
+}
+
+// THÊM HÀM XỬ LÝ NÚT XÓA
+async function deleteItem(itemId, btn) {
+  // Hiển thị hộp thoại xác nhận trước khi xóa để tránh bấm nhầm
+  if (!confirm('Bạn có chắc chắn muốn xóa mặt hàng này khỏi kho không? Hành động này không thể hoàn tác!')) {
+    return;
+  }
+  
+  if (btn) btn.disabled = true;
+  try {
+    const resData = await postAction({
+      action: 'DELETE_ITEM',
+      userRole: currentSessionUser.id,
+      itemId: itemId
+    });
+    showToast(resData.message, resData.success === false ? 'error' : 'success');
+    loadData(currentSessionUser.id);
+  } catch (err) {
+    console.error(err);
+    showToast('Xóa thất bại, thử lại nhé.', 'error');
     if (btn) btn.disabled = false;
   }
 }

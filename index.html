@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#0f0f12">
+  <meta name="theme-color" content="#121212">
   <title>Hub Quản Lý Live Khui Thẻ</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link rel="stylesheet" href="css/wabi-sabi.css">
   <link rel="stylesheet" href="css/netflix-auth.css">
 </head>
@@ -53,6 +54,8 @@
 
   <!-- 2. DASHBOARD CHÍNH -->
   <div id="mainDashboard" class="app-container hidden">
+    
+    <!-- HEADER -->
     <header class="app-header">
       <div class="brand">
         <h2>Hệ Thống Thẻ Nội Bộ 🎴</h2>
@@ -65,192 +68,294 @@
       </div>
     </header>
 
-    <!-- KPI VỐN CHUNG 70/30 -->
-    <section class="kpi-row">
-      <div class="card kpi">
-        <div class="kpi-icon">📦</div>
-        <div>
-          <div class="card-title">Vốn Hàng Chung Đang Có</div>
-          <div class="card-val gold" id="jointCapitalTotal">0 đ</div>
-        </div>
-      </div>
-      <div class="card kpi">
-        <div class="kpi-icon">💚</div>
-        <div>
-          <div class="card-title">Lãi Ròng Chị Kimmie (30%)</div>
-          <div class="card-val green" id="kimmieShareVal">0 đ</div>
-        </div>
-      </div>
-      <div class="card kpi">
-        <div class="kpi-icon">🤝</div>
-        <div>
-          <div class="card-title">Lãi Ròng Củn + Ngân (70%)</div>
-          <div class="card-val" id="cunNganShareVal">0 đ</div>
-        </div>
-      </div>
-    </section>
+    <!-- THANH ĐIỀU HƯỚNG (TABS) -->
+    <nav class="tab-nav">
+      <button class="tab-btn active" onclick="switchTab('tab-dashboard', this)">📊 Tổng Quan</button>
+      <button class="tab-btn" id="nav-inventory" onclick="switchTab('tab-inventory', this)">📦 Kho Hàng</button>
+      <button class="tab-btn" id="nav-live" onclick="switchTab('tab-live', this)">🔴 Báo Cáo Live</button>
+      <button class="tab-btn" id="nav-debt" onclick="switchTab('tab-debt', this)">💸 Sổ Công Nợ</button>
+    </nav>
 
-    <!-- FORM 1: BÁO CÁO SAU PHIÊN LIVE (KIMMIE BỊ ẨN) -->
-    <section id="liveReportSection" class="section-box hidden">
-      <div class="section-head">
-        <h3>🔴 Báo Cáo Sau Phiên Live</h3>
-        <span class="section-hint">Lưu xong hệ thống tự trừ kho và tính lãi</span>
-      </div>
+    <!-- ================= TAB 1: TỔNG QUAN ================= -->
+    <div id="tab-dashboard" class="tab-content active">
+      <section class="kpi-row">
+        <div class="card kpi">
+          <div class="kpi-icon">📦</div>
+          <div>
+            <div class="card-title">Vốn Hàng Chung Đang Có</div>
+            <div class="card-val gold" id="jointCapitalTotal">0 đ</div>
+          </div>
+        </div>
+        <div class="card kpi">
+          <div class="kpi-icon">💚</div>
+          <div>
+            <div class="card-title">Lãi Ròng Chị Kimmie (30%)</div>
+            <div class="card-val green" id="kimmieShareVal">0 đ</div>
+          </div>
+        </div>
+        <div class="card kpi">
+          <div class="kpi-icon">🤝</div>
+          <div>
+            <div class="card-title">Lãi Ròng Củn + Ngân (70%)</div>
+            <div class="card-val" id="cunNganShareVal">0 đ</div>
+          </div>
+        </div>
+      </section>
+    </div>
 
-      <form id="liveReportForm" class="form-grid">
-        <div class="field">
-          <label for="liveTikTokAcc">Nick TikTok Live</label>
-          <select id="liveTikTokAcc" required>
-            <option value="@nguyenphaque">@nguyenphaque</option>
-            <option value="@gocthexinhxan">@gocthexinhxan</option>
-          </select>
+    <!-- ================= TAB 2: KHO HÀNG ================= -->
+    <div id="tab-inventory" class="tab-content hidden">
+      <!-- FORM NHẬP KHO -->
+      <section id="itemFormSection" class="section-box hidden">
+        <div class="section-head">
+          <h3>📦 Nhập Lô Hàng Mới</h3>
+          <span class="section-hint">Nhập chi phí trực tiếp bằng VND</span>
+        </div>
+        <div id="sweetAlertMsg" class="sweet-alert hidden"></div>
+
+        <form id="addItemForm" class="form-grid">
+          <div class="field">
+            <label for="itemName">Tên bộ thẻ / box</label>
+            <input type="text" id="itemName" placeholder="Tên Bộ Thẻ / Box" required>
+          </div>
+          <div class="field">
+            <label for="capitalSource">Nguồn vốn</label>
+            <select id="capitalSource">
+              <option value="CHUNG_70_30">🤝 Vốn Chung (Củn + Ngân 70% | Kimmie 30%)</option>
+              <option value="RIENG_CUN_NGAN">🔒 Vốn Riêng 100% (Củn & Ngân)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="cnyPrice">Giá nhập (VNĐ/hộp)</label>
+            <input type="number" id="cnyPrice" placeholder="VD: 150000" inputmode="numeric" required>
+          </div>
+          <div class="field">
+            <label for="shippingFeeTqVn">Tiền ship (VNĐ/hộp)</label>
+            <input type="number" id="shippingFeeTqVn" placeholder="VD: 15000" inputmode="numeric" required>
+          </div>
+          <div class="field">
+            <label for="priceTiktok">Giá niêm yết TikTok (VNĐ)</label>
+            <input type="number" id="priceTiktok" placeholder="Giá TikTok" inputmode="numeric" required>
+          </div>
+          <div class="field">
+            <label for="priceZalo">Giá đơn Zalo (VNĐ)</label>
+            <input type="number" id="priceZalo" placeholder="Giá Zalo" inputmode="numeric" required>
+          </div>
+          <div class="field">
+            <label for="priceDaoVang">Giá niêm yết Đào Vàng (VNĐ - Không bắt buộc)</label>
+            <input type="number" id="priceDaoVang" placeholder="Để trống nếu không có" inputmode="numeric">
+          </div>
+          <div class="field">
+            <label for="stock">Số lượng hộp nhập</label>
+            <input type="number" id="stock" placeholder="VD: 24" inputmode="numeric" required>
+          </div>
+          <button type="submit" class="btn-primary">Tạo Đơn Nhập Kho</button>
+        </form>
+      </section>
+
+      <!-- BẢNG KHO HÀNG -->
+      <section class="section-box">
+        <div class="section-head">
+          <h3 id="inventoryTitle">📋 Danh Mục Kho & Trạng Thái Duyệt</h3>
+        </div>
+        <div id="inventorySummary" class="chips"></div>
+        <div class="table-wrap">
+          <table class="responsive-table">
+            <thead>
+              <tr>
+                <th>Tên Thẻ</th>
+                <th>Nguồn Vốn</th>
+                <th class="num">Vốn Gốc</th>
+                <th class="num">TikTok</th>
+                <th class="num">Zalo</th>
+                <th class="num">Giá Đào Vàng</th>
+                <th class="num">Kho Còn</th>
+                <th id="thStatus">Trạng Thái</th>
+                <th id="thAction">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody id="inventoryList"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- ================= TAB 3: BÁO CÁO LIVE ================= -->
+    <div id="tab-live" class="tab-content hidden">
+      <!-- FORM BÁO CÁO LIVE -->
+      <section id="liveReportSection" class="section-box hidden">
+        <div class="section-head">
+          <h3>🔴 Báo Cáo Sau Phiên Live</h3>
+          <span class="section-hint">Lưu xong hệ thống tự trừ kho và tính lãi</span>
         </div>
 
-        <div class="field">
-          <label for="liveItemSelect">Mặt hàng bán</label>
-          <select id="liveItemSelect" required></select>
-        </div>
-
-        <div class="field">
-          <label for="liveOrderChannel">Kênh bán</label>
-          <select id="liveOrderChannel" required>
-            <option value="TIKTOK_SHOP">TikTok Shop (phí sàn ~10%)</option>
-            <option value="ZALO_NGOAI">Zalo / Đơn ngoài (ăn trọn 100%)</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label for="liveQuantity">Số lượng bán (hộp/pack)</label>
-          <input type="number" id="liveQuantity" placeholder="VD: 12" min="0" inputmode="numeric" required>
-        </div>
-
-        <div class="field">
-          <label for="liveItemRevenue">Tiền hàng bán được (VND)</label>
-          <input type="number" id="liveItemRevenue" placeholder="Tổng tiền khách trả cho mặt hàng này" inputmode="numeric" required>
-        </div>
-
-        <div class="field full gold-box">
-          <h4>⛏️ Doanh thu trò "Đào Vàng" trong phiên live</h4>
-          <div class="inline-fields">
-            <div class="field">
-              <label for="daoVangPlays">Số lượt khách đào</label>
-              <input type="number" id="daoVangPlays" placeholder="Số lượt (nếu có)" min="0" value="0" inputmode="numeric">
-            </div>
-            <div class="field">
-              <label for="daoVangRevenue">Tổng tiền thu (VND)</label>
-              <input type="number" id="daoVangRevenue" placeholder="Tổng tiền đào vàng" min="0" value="0" inputmode="numeric">
+        <form id="liveReportForm" class="form-grid">
+          <div class="field">
+            <label for="liveTikTokAcc">Nick TikTok Live</label>
+            <select id="liveTikTokAcc" required>
+              <option value="@nguyenphaque">@nguyenphaque</option>
+              <option value="@gocthexinhxan">@gocthexinhxan</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="liveItemSelect">Mặt hàng bán</label>
+            <select id="liveItemSelect" required></select>
+          </div>
+          <div class="field">
+            <label for="liveOrderChannel">Kênh bán</label>
+            <select id="liveOrderChannel" required>
+              <option value="TIKTOK_SHOP">TikTok Shop (phí sàn ~10%)</option>
+              <option value="ZALO_NGOAI">Zalo / Đơn ngoài (ăn trọn 100%)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="liveQuantity">Số lượng bán (hộp/pack)</label>
+            <input type="number" id="liveQuantity" placeholder="VD: 12" min="0" inputmode="numeric" required>
+          </div>
+          <div class="field">
+            <label for="liveItemRevenue">Tiền hàng bán được (VNĐ)</label>
+            <input type="number" id="liveItemRevenue" placeholder="Tổng tiền khách trả cho mặt hàng này" inputmode="numeric" required>
+          </div>
+          <div class="field full gold-box">
+            <h4>⛏️ Doanh thu trò "Đào Vàng" trong phiên live (Không bắt buộc)</h4>
+            <div class="inline-fields">
+              <div class="field">
+                <label for="daoVangPlays">Số lượt khách đào</label>
+                <input type="number" id="daoVangPlays" placeholder="Để trống nếu không có" min="0" inputmode="numeric">
+              </div>
+              <div class="field">
+                <label for="daoVangRevenue">Tổng tiền thu (VNĐ)</label>
+                <input type="number" id="daoVangRevenue" placeholder="Để trống nếu không có" min="0" inputmode="numeric">
+              </div>
             </div>
           </div>
-          <small>Tiền đào vàng được cộng thẳng vào tổng doanh thu phiên live.</small>
+          <div class="field full">
+            <label for="liveNote">Ghi chú</label>
+            <input type="text" id="liveNote" placeholder="Ghi chú thêm...">
+          </div>
+          <button type="submit" class="btn-primary">Lưu Báo Cáo Phiên Live & Trừ Kho</button>
+        </form>
+      </section>
+
+      <!-- NHẬT KÝ LIVE -->
+      <section class="section-box">
+        <div class="section-head">
+          <h3>📊 Nhật Ký Các Phiên Live & Lợi Nhuận</h3>
+        </div>
+        <div id="liveSummary" class="chips"></div>
+        <div class="table-wrap">
+          <table class="responsive-table">
+            <thead>
+              <tr>
+                <th>Thời Gian</th>
+                <th>Nick Live</th>
+                <th>Kênh Bán</th>
+                <th>Mặt Hàng</th>
+                <th class="num">SL Bán</th>
+                <th class="num">Tiền Đào Vàng</th>
+                <th class="num">Tổng Doanh Thu</th>
+                <th class="num">Tiền Lãi</th>
+              </tr>
+            </thead>
+            <tbody id="liveReportList"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- ================= TAB 4: SỔ CÔNG NỢ ================= -->
+    <div id="tab-debt" class="tab-content hidden">
+      <section id="debtSection" class="section-box hidden">
+        <div class="section-head">
+          <h3>💸 Sổ Công Nợ Khách Hàng</h3>
         </div>
 
-        <div class="field full">
-          <label for="liveNote">Ghi chú</label>
-          <input type="text" id="liveNote" placeholder="Ghi chú thêm về phiên live này...">
+        <!-- DASHBOARD TÓM TẮT CÔNG NỢ -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 24px; align-items: center; background: var(--bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border);">
+          <div style="position: relative; height: 180px; width: 100%; max-width: 200px; margin: 0 auto;">
+            <canvas id="debtChart"></canvas>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 16px;">
+            <div class="card kpi" style="padding: 12px; background: transparent; border: none;">
+              <div class="kpi-icon" style="color: var(--green);">💰</div>
+              <div>
+                <div class="card-title">Tổng Đã Thu</div>
+                <div class="card-val green" id="totalPaidVal">0 đ</div>
+              </div>
+            </div>
+            <div class="card kpi" style="padding: 12px; background: transparent; border: none;">
+              <div class="kpi-icon" style="color: var(--red);">⚠️</div>
+              <div>
+                <div class="card-title">Tổng Còn Nợ</div>
+                <div class="card-val red" id="totalOwedVal">0 đ</div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <button type="submit" class="btn-primary">Lưu Báo Cáo Phiên Live & Trừ Kho</button>
-      </form>
-    </section>
+        <!-- FORM NHẬP CÔNG NỢ -->
+        <form id="debtForm" class="form-grid" style="margin-bottom: 24px; padding-top: 20px; border-top: 1px solid var(--border);">
+          <div class="field">
+            <label for="debtName">Tên khách hàng</label>
+            <input type="text" id="debtName" placeholder="VD: C Giang, Tuệ Nhi..." required>
+          </div>
+          <div class="field">
+            <label for="debtPaid">Đã trả (VNĐ)</label>
+            <input type="number" id="debtPaid" placeholder="VD: 1660000" inputmode="numeric">
+          </div>
+          <div class="field">
+            <label for="debtOwed">Còn thiếu (VNĐ)</label>
+            <input type="number" id="debtOwed" placeholder="VD: 1900000" inputmode="numeric">
+          </div>
+          <div class="field">
+            <label for="debtNote">Ghi chú</label>
+            <input type="text" id="debtNote" placeholder="Ghi chú thêm...">
+          </div>
+          <button type="submit" class="btn-primary">Thêm Khách Hàng</button>
+        </form>
 
-    <!-- FORM 2: NHẬP HÀNG TỪ TRUNG QUỐC (KIMMIE BỊ ẨN) -->
-    <section id="itemFormSection" class="section-box hidden">
-      <div class="section-head">
-        <h3>📦 Nhập Lô Hàng Mới (Trung Quốc → Việt Nam)</h3>
-        <span class="section-hint">Tỷ giá tính vốn: 1 tệ = 3.650 đ</span>
-      </div>
-      <div id="sweetAlertMsg" class="sweet-alert hidden"></div>
+        <!-- BỘ LỌC -->
+        <div class="form-grid" style="margin-bottom: 16px; background: var(--bg); padding: 16px; border-radius: 8px; border: 1px solid var(--border);">
+          <div class="field">
+            <label>Tìm tên khách</label>
+            <input type="text" id="filterDebtName" placeholder="Nhập tên..." oninput="applyDebtFilters()">
+          </div>
+          <div class="field">
+            <label>Lọc theo ngày</label>
+            <input type="date" id="filterDebtDate" onchange="applyDebtFilters()">
+          </div>
+          <div class="field">
+            <label>Sắp xếp</label>
+            <select id="sortDebt" onchange="applyDebtFilters()">
+              <option value="newest">Mới nhất</option>
+              <option value="owed_desc">Nợ nhiều nhất</option>
+              <option value="owed_asc">Nợ ít nhất</option>
+              <option value="paid_desc">Đã trả nhiều nhất</option>
+            </select>
+          </div>
+          <div class="field" style="justify-content: flex-end;">
+            <button type="button" class="btn-logout" onclick="resetDebtFilters()" style="width: 100%; min-height: 44px; border-radius: 8px;">Xóa Bộ Lọc</button>
+          </div>
+        </div>
 
-      <form id="addItemForm" class="form-grid">
-        <div class="field">
-          <label for="itemName">Tên bộ thẻ / box</label>
-          <input type="text" id="itemName" placeholder="Tên Bộ Thẻ / Box" required>
+        <div id="debtSummary" class="chips"></div>
+        <div class="table-wrap">
+          <table class="responsive-table">
+            <thead>
+              <tr>
+                <th>Ngày</th>
+                <th>Tên Khách</th>
+                <th class="num">Đã trả</th>
+                <th class="num">Còn Thiếu</th>
+                <th>Ghi Chú</th>
+              </tr>
+            </thead>
+            <tbody id="debtList"></tbody>
+          </table>
         </div>
-        <div class="field">
-          <label for="capitalSource">Nguồn vốn</label>
-          <select id="capitalSource">
-            <option value="CHUNG_70_30">🤝 Vốn Chung (Củn + Ngân 70% | Kimmie 30%)</option>
-            <option value="RIENG_CUN_NGAN">🔒 Vốn Riêng 100% (Củn & Ngân)</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="cnyPrice">Giá nhập TQ (tệ / CNY)</label>
-          <input type="number" id="cnyPrice" placeholder="VD: 85.5" step="0.1" inputmode="decimal" required>
-        </div>
-        <div class="field">
-          <label for="shippingFeeTqVn">Tiền ship TQ → VN (VND/hộp)</label>
-          <input type="number" id="shippingFeeTqVn" placeholder="VD: 15000" inputmode="numeric" required>
-        </div>
-        <div class="field">
-          <label for="priceTiktok">Giá niêm yết TikTok (VND)</label>
-          <input type="number" id="priceTiktok" placeholder="Giá TikTok" inputmode="numeric" required>
-        </div>
-        <div class="field">
-          <label for="priceZalo">Giá đơn Zalo (VND)</label>
-          <input type="number" id="priceZalo" placeholder="Giá Zalo" inputmode="numeric" required>
-        </div>
-        <div class="field">
-          <label for="priceDaoVang">Giá niêm yết Đào Vàng (VND)</label>
-          <input type="number" id="priceDaoVang" placeholder="Giá Đào Vàng" inputmode="numeric" required>
-        </div>
-        <div class="field">
-          <label for="stock">Số lượng hộp nhập</label>
-          <input type="number" id="stock" placeholder="VD: 24" inputmode="numeric" required>
-        </div>
-        <button type="submit" class="btn-primary">Tạo Đơn Nhập Kho</button>
-      </form>
-    </section>
+      </section>
+    </div>
 
-    <!-- BẢNG 1: NHẬT KÝ PHIÊN LIVE -->
-    <section class="section-box">
-      <div class="section-head">
-        <h3>📊 Nhật Ký Các Phiên Live & Lợi Nhuận</h3>
-      </div>
-      <div id="liveSummary" class="chips"></div>
-      <div class="table-wrap">
-        <table class="responsive-table">
-          <thead>
-            <tr>
-              <th>Thời Gian</th>
-              <th>Nick Live</th>
-              <th>Kênh Bán</th>
-              <th>Mặt Hàng</th>
-              <th class="num">SL Bán</th>
-              <th class="num">Tiền Đào Vàng</th>
-              <th class="num">Tổng Doanh Thu</th>
-              <th class="num">Tiền Lãi</th>
-            </tr>
-          </thead>
-          <tbody id="liveReportList"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- BẢNG 2: KHO HÀNG -->
-    <section class="section-box">
-      <div class="section-head">
-        <h3 id="inventoryTitle">📋 Danh Mục Kho & Trạng Thái Duyệt</h3>
-      </div>
-      <div id="inventorySummary" class="chips"></div>
-      <div class="table-wrap">
-        <table class="responsive-table">
-          <thead>
-            <tr>
-              <th>Tên Thẻ</th>
-              <th>Nguồn Vốn</th>
-              <th class="num">Vốn Gốc (kèm ship)</th>
-              <th class="num">TikTok</th>
-              <th class="num">Zalo</th>
-              <th class="num">Giá Đào Vàng</th>
-              <th class="num">Kho Còn</th>
-              <th id="thStatus">Trạng Thái</th>
-              <th id="thAction">Thao Tác</th>
-            </tr>
-          </thead>
-          <tbody id="inventoryList"></tbody>
-        </table>
-      </div>
-    </section>
   </div>
 
   <script src="js/config.js"></script>
