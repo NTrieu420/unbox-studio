@@ -49,10 +49,16 @@ function initDashboard(user) {
 
   const isKimmie = user.id === 'KIMMIE';
   
+  // Ẩn form nhập liệu
   document.getElementById('itemFormSection').classList.toggle('hidden', isKimmie);
   document.getElementById('liveReportSection').classList.toggle('hidden', isKimmie);
-  document.getElementById('debtSection').classList.toggle('hidden', isKimmie); 
-  document.getElementById('nav-debt').classList.toggle('hidden', isKimmie);
+  
+  // Kimmie được xem Sổ Công Nợ (nhưng ẩn form thêm khách và các cột thao tác)
+  document.getElementById('debtSection').classList.remove('hidden');
+  document.getElementById('debtForm').classList.toggle('hidden', isKimmie);
+  document.getElementById('thDebtAction').classList.toggle('hidden', isKimmie);
+  
+  // Ẩn các cột thao tác khác đối với Kimmie
   document.getElementById('thAction').classList.toggle('hidden', isKimmie);
   document.getElementById('thStatus').classList.toggle('hidden', isKimmie);
   document.getElementById('thLiveAction').classList.toggle('hidden', isKimmie);
@@ -76,10 +82,8 @@ async function loadData(roleId) {
     renderLiveSelect(cachedItems);
     renderLiveReports(data.liveReports || [], roleId);
     
-    if (roleId !== 'KIMMIE') {
-      cachedDebts = data.debts || [];
-      applyDebtFilters(); 
-    }
+    cachedDebts = data.debts || [];
+    applyDebtFilters(); 
   } catch (err) {
     console.error('Lỗi:', err);
     showToast('Không tải được dữ liệu, thử lại sau nhé.', 'error');
@@ -144,7 +148,7 @@ function renderTable(items, roleId) {
     tr.innerHTML = `
       <td class="name-cell" data-label="Tên thẻ"><strong>${esc(item.name)}</strong></td>
       <td data-label="Nguồn vốn"><span class="${isJoint ? 'tag-joint' : 'tag-private'}">${isJoint ? '🤝 Vốn Chung' : '🔒 Vốn Riêng'}</span></td>
-      <td class="num" data-label="Vốn gốc">${fmtVnd(item.totalCostVnd)}</td>
+      <td class="num" data-label="Giá Vốn 1 Hộp">${fmtVnd(item.totalCostVnd)}</td>
       <td class="num" data-label="TikTok">${fmtVnd(item.priceTiktok)}</td>
       <td class="num" data-label="Zalo">${fmtVnd(item.priceZalo)}</td>
       <td class="num gold" data-label="Đào Vàng">${fmtVnd(item.priceDaoVang)}</td>
@@ -208,10 +212,12 @@ function openEditItemModal(itemId) {
   if (!item) return;
 
   currentItemIdToEdit = itemId;
+  // Vì DB lưu giá vốn 1 hộp, ta phải nhân ngược lại với số lượng để hiển thị Tổng tiền
+  const totalCost = Number(item.totalCostVnd) * Number(item.stock);
+
   document.getElementById('editItemName').value = item.name;
   document.getElementById('editCapitalSource').value = item.capitalSource;
-  document.getElementById('editCnyPrice').value = item.cnyPrice;
-  document.getElementById('editShippingFee').value = item.shippingFeeTqVn;
+  document.getElementById('editCnyPrice').value = totalCost; // Hiển thị tổng tiền
   document.getElementById('editPriceTiktok').value = item.priceTiktok;
   document.getElementById('editPriceZalo').value = item.priceZalo;
   document.getElementById('editPriceDaoVang').value = item.priceDaoVang || '';
@@ -236,8 +242,7 @@ async function submitEditItem() {
     data: {
       name: document.getElementById('editItemName').value,
       capitalSource: document.getElementById('editCapitalSource').value,
-      cnyPrice: document.getElementById('editCnyPrice').value,
-      shippingFeeTqVn: document.getElementById('editShippingFee').value,
+      cnyPrice: document.getElementById('editCnyPrice').value, // Gửi tổng tiền
       priceTiktok: document.getElementById('editPriceTiktok').value,
       priceZalo: document.getElementById('editPriceZalo').value,
       priceDaoVang: document.getElementById('editPriceDaoVang').value || 0,
@@ -332,20 +337,21 @@ function renderDebts(debts) {
 
   if (debts.length === 0) {
     summary.innerHTML = '<span class="chip">Không tìm thấy khách hàng nào</span>';
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-row">Không có dữ liệu</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="${currentSessionUser.id === 'KIMMIE' ? 5 : 6}" class="empty-row">Không có dữ liệu</td></tr>`;
     return;
   }
 
   summary.innerHTML = `<span class="chip"><b>${debts.length}</b> khách hàng hiển thị</span>`;
   const isAdmin = currentSessionUser.id === 'CUN';
+  const isKimmie = currentSessionUser.id === 'KIMMIE';
 
   debts.forEach(d => {
     const owedVal = Number(d.owed) || 0;
     
     let payBtn = '';
-    if (owedVal > 0) {
+    if (owedVal > 0 && !isKimmie) {
       payBtn = `<button class="btn-approve" onclick="openDebtPayModal('${esc(d.id)}', '${esc(d.name)}', ${owedVal})">Thu Nợ</button>`;
-    } else {
+    } else if (owedVal === 0) {
       payBtn = `<span style="color:var(--green); font-size:0.85rem; font-weight:600;">Đã xong</span>`;
     }
 
@@ -361,7 +367,7 @@ function renderDebts(debts) {
       <td class="num green" data-label="Đã trả">${fmtVnd(d.paid)}</td>
       <td class="num red" data-label="Còn thiếu">${fmtVnd(d.owed)}</td>
       <td data-label="Ghi chú" style="font-size: 0.85rem; color: var(--muted);">${esc(d.note)}</td>
-      <td data-label="Thao tác"><div style="display:flex; gap:8px; justify-content:flex-end;">${payBtn}${deleteBtn}</div></td>
+      ${isKimmie ? '' : `<td data-label="Thao tác"><div style="display:flex; gap:8px; justify-content:flex-end;">${payBtn}${deleteBtn}</div></td>`}
     `;
     tbody.appendChild(tr);
   });
@@ -542,8 +548,7 @@ document.getElementById('addItemForm').onsubmit = async (e) => {
     data: {
       name: document.getElementById('itemName').value,
       capitalSource: document.getElementById('capitalSource').value,
-      cnyPrice: document.getElementById('cnyPrice').value,
-      shippingFeeTqVn: document.getElementById('shippingFeeTqVn').value,
+      cnyPrice: document.getElementById('cnyPrice').value, // Gửi tổng tiền
       priceTiktok: document.getElementById('priceTiktok').value,
       priceZalo: document.getElementById('priceZalo').value,
       priceDaoVang: document.getElementById('priceDaoVang').value || 0,

@@ -88,12 +88,12 @@
           </select>
         </div>
         <div class="field">
-          <label>Giá nhập (VNĐ/hộp)</label>
-          <input type="number" id="editCnyPrice" required>
+          <label>Tổng tiền lô hàng (VNĐ)</label>
+          <input type="number" id="editCnyPrice" placeholder="Đã bao gồm ship" required>
         </div>
         <div class="field">
-          <label>Tiền ship (VNĐ/hộp)</label>
-          <input type="number" id="editShippingFee" required>
+          <label>Tồn kho</label>
+          <input type="number" id="editStock" required>
         </div>
         <div class="field">
           <label>Giá TikTok</label>
@@ -106,10 +106,6 @@
         <div class="field">
           <label>Giá Đào Vàng</label>
           <input type="number" id="editPriceDaoVang">
-        </div>
-        <div class="field">
-          <label>Tồn kho</label>
-          <input type="number" id="editStock" required>
         </div>
       </div>
 
@@ -180,7 +176,7 @@
       <section id="itemFormSection" class="section-box hidden">
         <div class="section-head">
           <h3>📦 Nhập Lô Hàng Mới</h3>
-          <span class="section-hint">Nhập chi phí trực tiếp bằng VND</span>
+          <span class="section-hint">Nhập tổng chi phí (đã gồm ship) và số lượng</span>
         </div>
         <div id="sweetAlertMsg" class="sweet-alert hidden"></div>
 
@@ -197,12 +193,12 @@
             </select>
           </div>
           <div class="field">
-            <label for="cnyPrice">Giá nhập (VNĐ/hộp)</label>
-            <input type="number" id="cnyPrice" placeholder="VD: 150000" inputmode="numeric" required>
+            <label for="cnyPrice">Tổng tiền lô hàng (VNĐ)</label>
+            <input type="number" id="cnyPrice" placeholder="VD: 6500000 (Đã bao gồm ship)" inputmode="numeric" required>
           </div>
           <div class="field">
-            <label for="shippingFeeTqVn">Tiền ship (VNĐ/hộp)</label>
-            <input type="number" id="shippingFeeTqVn" placeholder="VD: 15000" inputmode="numeric" required>
+            <label for="stock">Số lượng hộp nhập</label>
+            <input type="number" id="stock" placeholder="VD: 30" inputmode="numeric" required>
           </div>
           <div class="field">
             <label for="priceTiktok">Giá niêm yết TikTok (VNĐ)</label>
@@ -215,10 +211,6 @@
           <div class="field">
             <label for="priceDaoVang">Giá niêm yết Đào Vàng (VNĐ - Không bắt buộc)</label>
             <input type="number" id="priceDaoVang" placeholder="Để trống nếu không có" inputmode="numeric">
-          </div>
-          <div class="field">
-            <label for="stock">Số lượng hộp nhập</label>
-            <input type="number" id="stock" placeholder="VD: 24" inputmode="numeric" required>
           </div>
           <button type="submit" class="btn-primary">Tạo Đơn Nhập Kho</button>
         </form>
@@ -236,7 +228,7 @@
               <tr>
                 <th>Tên Thẻ</th>
                 <th>Nguồn Vốn</th>
-                <th class="num">Vốn Gốc</th>
+                <th class="num">Giá Vốn 1 Hộp</th>
                 <th class="num">TikTok</th>
                 <th class="num">Zalo</th>
                 <th class="num">Giá Đào Vàng</th>
@@ -275,7 +267,7 @@
           <div class="field">
             <label for="liveOrderChannel">Kênh bán</label>
             <select id="liveOrderChannel" required>
-              <option value="TIKTOK_SHOP">TikTok Shop (phí sàn ~10%)</option>
+              <option value="TIKTOK_SHOP">TikTok Shop (phí sàn ~30%)</option>
               <option value="ZALO_NGOAI">Zalo / Đơn ngoài (ăn trọn 100%)</option>
             </select>
           </div>
@@ -337,7 +329,7 @@
 
     <!-- ================= TAB 4: SỔ CÔNG NỢ ================= -->
     <div id="tab-debt" class="tab-content hidden">
-      <section id="debtSection" class="section-box hidden">
+      <section id="debtSection" class="section-box">
         <div class="section-head">
           <h3>💸 Sổ Công Nợ Khách Hàng</h3>
         </div>
@@ -365,7 +357,7 @@
           </div>
         </div>
 
-        <!-- FORM NHẬP CÔNG NỢ -->
+        <!-- FORM NHẬP CÔNG NỢ (Kimmie sẽ bị ẩn form này) -->
         <form id="debtForm" class="form-grid" style="margin-bottom: 24px; padding-top: 20px; border-top: 1px solid var(--border);">
           <div class="field">
             <label for="debtName">Tên khách hàng</label>
@@ -420,7 +412,7 @@
                 <th class="num">Đã trả</th>
                 <th class="num">Còn Thiếu</th>
                 <th>Ghi Chú</th>
-                <th>Thao Tác</th>
+                <th id="thDebtAction">Thao Tác</th>
               </tr>
             </thead>
             <tbody id="debtList"></tbody>
